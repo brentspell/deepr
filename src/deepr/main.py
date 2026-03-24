@@ -68,7 +68,8 @@ class DeeprApp(cmd2.Cmd):
                 ),
             )
 
-        console = rc.Console()
+        console = rc.Console(width=120)
+        console.print()
         report_text = ""
         streaming_report = False
 
