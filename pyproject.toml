@@ -3,10 +3,11 @@ name = "deepr"
 version = "0.1.0"
 description = "Deep Research Agent"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = "~=3.12.0"
 dependencies = [
   "cmd2~=3.0",
   "google-genai~=1.0",
+  "keyring~=25.7",
   "rich~=14.0",
 ]
 
