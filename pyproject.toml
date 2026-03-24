@@ -1,0 +1,35 @@
+[project]
+name = "deepr"
+version = "0.1.0"
+description = "Deep Research Agent"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "cmd2~=3.0",
+  "google-genai~=1.0",
+  "rich~=14.0",
+]
+
+[dependency-groups]
+dev = [
+  "coveralls",
+  "hypothesis",
+  "ipykernel",
+  "ipywidgets",
+  "mypy",
+  "pre-commit",
+  "pytest-benchmark",
+  "pytest-cov",
+  "pytest-asyncio",
+  "pytest",
+  "pytest-xdist",
+  "ruff",
+  "tqdm",
+  "ty",
+]
+
+[tool.uv]
+package = true
+
+[project.scripts]
+deepr = "deepr.main:main"
