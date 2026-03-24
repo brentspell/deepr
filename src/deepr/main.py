@@ -3,6 +3,7 @@ import warnings
 import cmd2
 import google.genai as genai
 import google.genai.interactions as gxi
+from google.genai._interactions._types import omit as _OMIT
 import keyring
 import rich.console as rc
 import rich.markdown as rm
@@ -15,6 +16,7 @@ class DeeprApp(cmd2.Cmd):
         super().__init__()
         self.intro = "Welcome to deepr. Type a prompt to begin research."
         self.prompt = "deepr> "
+        self._last_interaction_id: str | None = None
 
     def preloop(self) -> None:
         super().preloop()
@@ -35,6 +37,12 @@ class DeeprApp(cmd2.Cmd):
         keyring.set_password(self._KEYRING, self._KEYRING, key)
         self.poutput("API key saved to keyring.")
 
+    def do_new(self, _statement: cmd2.Statement) -> None:
+        """Start a new research conversation, clearing follow-up context."""
+        self._last_interaction_id = None
+        self.prompt = "deepr> "
+        self.poutput("Conversation cleared. Type a prompt to begin new research.")
+
     def default(self, statement: cmd2.Statement) -> None:
         text = statement.raw.strip()
         if not text:
@@ -43,6 +51,7 @@ class DeeprApp(cmd2.Cmd):
         client = genai.Client(
             api_key=keyring.get_password(self._KEYRING, self._KEYRING),
         )
+
         with warnings.catch_warnings():
             warnings.filterwarnings(
                 "ignore", message="Interactions usage is experimental"
@@ -52,6 +61,11 @@ class DeeprApp(cmd2.Cmd):
                 agent="deep-research-pro-preview-12-2025",
                 agent_config={"type": "deep-research", "thinking_summaries": "auto"},
                 background=True,
+                previous_interaction_id=(
+                    self._last_interaction_id
+                    if self._last_interaction_id is not None
+                    else _OMIT
+                ),
             )
 
         console = rc.Console()
@@ -97,6 +111,8 @@ class DeeprApp(cmd2.Cmd):
 
         if report_text:
             console.print(rm.Markdown(report_text))
+            self._last_interaction_id = interaction.id
+            self.prompt = "deepr (follow-up)> "
 
 
 def main() -> None:
