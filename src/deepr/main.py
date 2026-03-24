@@ -1,3 +1,6 @@
+import pathlib
+import subprocess
+import tempfile
 import warnings
 
 import cmd2
@@ -17,6 +20,7 @@ class DeeprApp(cmd2.Cmd):
         self.intro = "Welcome to deepr. Type a prompt to begin research."
         self.prompt = "deepr> "
         self._last_interaction_id: str | None = None
+        self._reports: list[str] = []
 
     def preloop(self) -> None:
         super().preloop()
@@ -40,8 +44,42 @@ class DeeprApp(cmd2.Cmd):
     def do_new(self, _statement: cmd2.Statement) -> None:
         """Start a new research conversation, clearing follow-up context."""
         self._last_interaction_id = None
+        self._reports.clear()
         self.prompt = "deepr> "
         self.poutput("Conversation cleared. Type a prompt to begin new research.")
+
+    def do_pdf(self, statement: cmd2.Statement) -> None:
+        """Export the current research conversation to a PDF file."""
+        if not self._reports:
+            self.perror("No research to export. Run a query first.")
+            return
+
+        filename = statement.raw.partition("pdf")[2].strip() or "deepr_report.pdf"
+        output_path = pathlib.Path(filename).resolve()
+
+        combined = "\n\n---\n\n".join(self._reports)
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".md") as tmp:
+            tmp.write(combined)
+            tmp.flush()
+
+            try:
+                result = subprocess.run(
+                    ["pandoc", tmp.name, "-o", str(output_path)],
+                    capture_output=True,
+                    text=True,
+                )
+            except FileNotFoundError:
+                self.perror(
+                    "pandoc is not installed. Install it from https://pandoc.org/"
+                )
+                return
+
+        if result.returncode != 0:
+            self.perror(f"pandoc failed: {result.stderr.strip()}")
+            return
+
+        self.poutput(f"PDF saved to {output_path}")
 
     def default(self, statement: cmd2.Statement) -> None:
         text = statement.raw.strip()
@@ -112,6 +150,7 @@ class DeeprApp(cmd2.Cmd):
 
         if report_text:
             console.print(rm.Markdown(report_text))
+            self._reports.append(report_text)
             self._last_interaction_id = interaction.id
             self.prompt = "deepr (follow-up)> "
 
