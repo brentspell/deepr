@@ -20,6 +20,18 @@ class DeeprApp(cmd2.Cmd):
         super().__init__(
             persistent_history_file="~/.deepr_history",
         )
+        for name in (
+            "alias",
+            "edit",
+            "history",
+            "macro",
+            "run_pyscript",
+            "run_script",
+            "set",
+            "shell",
+            "shortcuts",
+        ):
+            self.disable_command(name, "This command is not available.")
         self.intro = "Welcome to deepr. Type a prompt to begin research."
         self.prompt = "deepr> "
         self._last_interaction_id: str | None = None
