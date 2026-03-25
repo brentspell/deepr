@@ -34,7 +34,7 @@ class DeeprApp(cmd2.Cmd):
             self.disable_command(name, "This command is not available.")
         self.intro = "Welcome to deepr. Type a prompt to begin research."
         self.prompt = "deepr> "
-        self._last_interaction_id: str | None = None
+        self._research_id: str | None = None
         self._reports: list[str] = []
 
     def sigint_handler(
@@ -42,9 +42,10 @@ class DeeprApp(cmd2.Cmd):
         signum: int,
         frame: types.FrameType | None,
     ) -> None:
-        if self.current_command is None:
+        if self._research_id is not None:
+            super().sigint_handler(signum, frame)
+        else:
             raise SystemExit(0)
-        super().sigint_handler(signum, frame)
 
     def preloop(self) -> None:
         super().preloop()
@@ -67,7 +68,7 @@ class DeeprApp(cmd2.Cmd):
 
     def do_new(self, _statement: cmd2.Statement) -> None:
         """Start a new research conversation, clearing follow-up context."""
-        self._last_interaction_id = None
+        self._research_id = None
         self._reports.clear()
         self.prompt = "deepr> "
         self.poutput("Conversation cleared. Type a prompt to begin new research.")
@@ -124,9 +125,7 @@ class DeeprApp(cmd2.Cmd):
                 agent_config={"type": "deep-research", "thinking_summaries": "auto"},
                 background=True,
                 previous_interaction_id=(
-                    self._last_interaction_id
-                    if self._last_interaction_id is not None
-                    else _OMIT
+                    self._research_id if self._research_id is not None else _OMIT
                 ),
             )
 
@@ -135,6 +134,7 @@ class DeeprApp(cmd2.Cmd):
         report_text = ""
         streaming_report = False
 
+        self._research_id = interaction.id
         try:
             with console.status("Researching...") as status:
                 stream = client.interactions.get(interaction.id, stream=True)
@@ -169,13 +169,13 @@ class DeeprApp(cmd2.Cmd):
                         return
         except KeyboardInterrupt:
             client.interactions.cancel(interaction.id)
+            self._research_id = None
             self.poutput("\nResearch cancelled.")
             return
 
         if report_text:
             console.print(rm.Markdown(report_text))
             self._reports.append(report_text)
-            self._last_interaction_id = interaction.id
             self.prompt = "deepr (follow-up)> "
 
 
