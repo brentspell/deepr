@@ -1,6 +1,7 @@
 import pathlib
 import subprocess
 import tempfile
+import types
 import warnings
 
 import cmd2
@@ -16,12 +17,22 @@ class DeeprApp(cmd2.Cmd):
     _KEYRING = "deepr"
 
     def __init__(self) -> None:
-        super().__init__()
+        super().__init__(
+            persistent_history_file="~/.deepr_history",
+        )
         self.intro = "Welcome to deepr. Type a prompt to begin research."
         self.prompt = "deepr> "
-        self.persistent_history_file = "~/.deepr_history"
         self._last_interaction_id: str | None = None
         self._reports: list[str] = []
+
+    def sigint_handler(
+        self,
+        signum: int,
+        frame: types.FrameType | None,
+    ) -> None:
+        if self.current_command is None:
+            raise SystemExit(0)
+        super().sigint_handler(signum, frame)
 
     def preloop(self) -> None:
         super().preloop()
