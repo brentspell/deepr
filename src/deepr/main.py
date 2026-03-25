@@ -66,7 +66,7 @@ class DeeprApp(cmd2.Cmd):
         keyring.set_password(self._KEYRING, self._KEYRING, key)
         self.poutput("API key saved to keyring.")
 
-    def do_new(self, _statement: cmd2.Statement) -> None:
+    def do_reset(self, _statement: cmd2.Statement) -> None:
         """Start a new research conversation, clearing follow-up context."""
         self._research_id = None
         self._reports.clear()
