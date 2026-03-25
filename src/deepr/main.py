@@ -19,6 +19,7 @@ class DeeprApp(cmd2.Cmd):
         super().__init__()
         self.intro = "Welcome to deepr. Type a prompt to begin research."
         self.prompt = "deepr> "
+        self.persistent_history_file = "~/.deepr_history"
         self._last_interaction_id: str | None = None
         self._reports: list[str] = []
 
