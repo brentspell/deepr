@@ -16,11 +16,11 @@ the `key` command
 deepr> key
 ```
 
-After running a research session, you can save the results to PDF using the `pdf`
+After running a research session, you can save the results to PDF using the `save`
 command:
 
 ```
-deepr> pdf my-research.pdf
+deepr> save my-research.pdf
 ```
 
 ## Development

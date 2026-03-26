@@ -73,13 +73,13 @@ class DeeprApp(cmd2.Cmd):
         self.prompt = "deepr> "
         self.poutput("Conversation cleared. Type a prompt to begin new research.")
 
-    def do_pdf(self, statement: cmd2.Statement) -> None:
+    def do_save(self, statement: cmd2.Statement) -> None:
         """Export the current research conversation to a PDF file."""
         if not self._reports:
             self.perror("No research to export. Run a query first.")
             return
 
-        filename = statement.raw.partition("pdf")[2].strip() or "deepr_report.pdf"
+        filename = statement.raw.partition("save")[2].strip() or "deepr_report.pdf"
         output_path = pathlib.Path(filename).resolve()
 
         combined = "\n\n---\n\n".join(self._reports)
