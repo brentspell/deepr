@@ -56,7 +56,19 @@ class DeeprApp(cmd2.Cmd):
             )
 
     def do_key(self, statement: cmd2.Statement) -> None:
-        """Set the Google GenAI API key."""
+        """Set the Google GenAI API key used for deep research queries.
+
+        Usage: key [API_KEY]
+
+        If no key is provided as an argument, you will be prompted to enter one
+        interactively. The key is stored securely in your system keyring.
+
+        You can obtain an API key from https://aistudio.google.com/apikey
+
+        Examples:
+            key AIzaSy...                Set a key directly
+            key                          Prompt for key input
+        """
         key = statement.raw.partition("key")[2].strip()
         if not key:
             key = input("Enter API key: ").strip()
@@ -67,14 +79,37 @@ class DeeprApp(cmd2.Cmd):
         self.poutput("API key saved to keyring.")
 
     def do_reset(self, _statement: cmd2.Statement) -> None:
-        """Start a new research conversation, clearing follow-up context."""
+        """Clear the current research conversation and start fresh.
+
+        Usage: reset
+
+        Discards all follow-up context and accumulated reports from the current
+        session. After resetting, your next query will begin a new independent
+        research conversation.
+
+        This does not affect your saved API key or command history.
+        """
         self._research_id = None
         self._reports.clear()
         self.prompt = "deepr> "
         self.poutput("Conversation cleared. Type a prompt to begin new research.")
 
     def do_save(self, statement: cmd2.Statement) -> None:
-        """Export the current research conversation to a PDF file."""
+        """Export the current research reports to a PDF file.
+
+        Usage: save [FILENAME]
+
+        Combines all reports from the current conversation into a single PDF
+        using pandoc. If no filename is given, defaults to 'deepr_report.pdf'
+        in the current directory.
+
+        Requires pandoc to be installed (https://pandoc.org/).
+
+        Examples:
+            save                         Save to deepr_report.pdf
+            save my_research.pdf         Save to my_research.pdf
+            save ~/reports/topic.pdf     Save to an absolute path
+        """
         if not self._reports:
             self.perror("No research to export. Run a query first.")
             return
