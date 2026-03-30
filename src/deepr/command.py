@@ -1,6 +1,7 @@
 """Minimal command framework built on prompt_toolkit and Rich."""
 
 import pathlib
+import sys
 import typing as T
 
 import prompt_toolkit as ptk
@@ -288,3 +289,13 @@ class CommandApp:
     def perror(self, text: object = "") -> None:
         """Print *text* to stderr in red via Rich."""
         self._err_console.print(text, style="red", highlight=False)
+
+    def notify(self, message: str) -> None:
+        """Send a desktop notification via OSC 9 terminal escape.
+
+        Most modern terminals (iTerm2, WezTerm, Ghostty, Windows Terminal,
+        GNOME Terminal, VS Code) will display this as a system notification.
+        Terminals that do not support OSC 9 silently ignore the sequence.
+        """
+        sys.stderr.write(f"\033]9;{message}\a")
+        sys.stderr.flush()

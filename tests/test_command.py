@@ -175,6 +175,18 @@ class TestOutput:
         captured = capsys.readouterr()
         assert "bad thing" in captured.err
 
+    def test_notify_writes_osc9_to_stderr(self, capsys):
+        app = RecordingApp()
+        app.notify("Research complete")
+        captured = capsys.readouterr()
+        assert captured.err == "\033]9;Research complete\a"
+
+    def test_notify_does_not_write_to_stdout(self, capsys):
+        app = RecordingApp()
+        app.notify("hello")
+        captured = capsys.readouterr()
+        assert captured.out == ""
+
 
 # ---------------------------------------------------------------------------
 # Non-interactive run()

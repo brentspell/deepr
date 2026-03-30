@@ -193,6 +193,7 @@ class DeeprApp(CommandApp):
             console.print(rm.Markdown(dl.latex_to_unicode(report_text)))
             self._reports.append(report_text)
             self._prompt = "deepr (follow-up)> "
+            self.notify("Research complete")
 
 
 def main() -> None:
