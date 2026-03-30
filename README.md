@@ -13,14 +13,14 @@ Once you have it running, you can set add your
 the `key` command
 
 ```
-deepr> key
+deepr> /key
 ```
 
 After running a research session, you can save the results to PDF using the `save`
 command:
 
 ```
-deepr> save my-research.pdf
+deepr> /save my-research.pdf
 ```
 
 ## Development
