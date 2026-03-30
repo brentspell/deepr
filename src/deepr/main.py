@@ -1,10 +1,8 @@
 import pathlib
 import subprocess
 import tempfile
-import types
 import warnings
 
-import cmd2
 import google.genai as genai
 import google.genai.interactions as gxi
 from google.genai._interactions._types import omit as _OMIT
@@ -12,53 +10,33 @@ import keyring
 import rich.console as rc
 import rich.markdown as rm
 
+from deepr.command import CommandApp, command
 
-class DeeprApp(cmd2.Cmd):
+
+class DeeprApp(CommandApp):
     _KEYRING = "deepr"
 
     def __init__(self) -> None:
         super().__init__(
-            persistent_history_file="~/.deepr_history",
+            prompt="deepr> ",
+            history_file="~/.deepr_history",
+            intro="Welcome to deepr. Type a prompt to begin research.",
+            prog="deepr",
+            description="Deep Research Agent",
         )
-        for name in (
-            "alias",
-            "edit",
-            "history",
-            "macro",
-            "run_pyscript",
-            "run_script",
-            "set",
-            "shell",
-            "shortcuts",
-        ):
-            self.disable_command(name, "This command is not available.")
-        self.intro = "Welcome to deepr. Type a prompt to begin research."
-        self.prompt = "deepr> "
         self._research_id: str | None = None
         self._reports: list[str] = []
 
-    def sigint_handler(
-        self,
-        signum: int,
-        frame: types.FrameType | None,
-    ) -> None:
-        if self._research_id is not None:
-            super().sigint_handler(signum, frame)
-        else:
-            raise SystemExit(0)
-
     def preloop(self) -> None:
-        super().preloop()
         existing = keyring.get_password(self._KEYRING, self._KEYRING)
         if not existing:
-            self.poutput(
-                "No Google GenAI API key found. Use the 'key' command to set one."
-            )
+            self.poutput("No Google GenAI API key found. Use '/key' to set one.")
 
-    def do_key(self, statement: cmd2.Statement) -> None:
+    @command("key", "Set the Google GenAI API key.")
+    def cmd_key(self, args: str) -> None:
         """Set the Google GenAI API key used for deep research queries.
 
-        Usage: key [API_KEY]
+        Usage: /key [API_KEY]
 
         If no key is provided as an argument, you will be prompted to enter one
         interactively. The key is stored securely in your system keyring.
@@ -66,10 +44,10 @@ class DeeprApp(cmd2.Cmd):
         You can obtain an API key from https://aistudio.google.com/apikey
 
         Examples:
-            key AIzaSy...                Set a key directly
-            key                          Prompt for key input
+            /key AIzaSy...               Set a key directly
+            /key                         Prompt for key input
         """
-        key = statement.raw.partition("key")[2].strip()
+        key = args.strip()
         if not key:
             key = input("Enter API key: ").strip()
         if not key:
@@ -78,10 +56,11 @@ class DeeprApp(cmd2.Cmd):
         keyring.set_password(self._KEYRING, self._KEYRING, key)
         self.poutput("API key saved to keyring.")
 
-    def do_reset(self, _statement: cmd2.Statement) -> None:
+    @command("reset", "Clear conversation and start fresh.")
+    def cmd_reset(self, args: str) -> None:
         """Clear the current research conversation and start fresh.
 
-        Usage: reset
+        Usage: /reset
 
         Discards all follow-up context and accumulated reports from the current
         session. After resetting, your next query will begin a new independent
@@ -91,13 +70,14 @@ class DeeprApp(cmd2.Cmd):
         """
         self._research_id = None
         self._reports.clear()
-        self.prompt = "deepr> "
+        self._prompt = "deepr> "
         self.poutput("Conversation cleared. Type a prompt to begin new research.")
 
-    def do_save(self, statement: cmd2.Statement) -> None:
+    @command("save", "Export reports to PDF.")
+    def cmd_save(self, args: str) -> None:
         """Export the current research reports to a PDF file.
 
-        Usage: save [FILENAME]
+        Usage: /save [FILENAME]
 
         Combines all reports from the current conversation into a single PDF
         using pandoc. If no filename is given, defaults to 'deepr_report.pdf'
@@ -106,15 +86,15 @@ class DeeprApp(cmd2.Cmd):
         Requires pandoc to be installed (https://pandoc.org/).
 
         Examples:
-            save                         Save to deepr_report.pdf
-            save my_research.pdf         Save to my_research.pdf
-            save ~/reports/topic.pdf     Save to an absolute path
+            /save                        Save to deepr_report.pdf
+            /save my_research.pdf        Save to my_research.pdf
+            /save ~/reports/topic.pdf    Save to an absolute path
         """
         if not self._reports:
             self.perror("No research to export. Run a query first.")
             return
 
-        filename = statement.raw.partition("save")[2].strip() or "deepr_report.pdf"
+        filename = args.strip() or "deepr_report.pdf"
         output_path = pathlib.Path(filename).resolve()
 
         combined = "\n\n---\n\n".join(self._reports)
@@ -141,8 +121,7 @@ class DeeprApp(cmd2.Cmd):
 
         self.poutput(f"PDF saved to {output_path}")
 
-    def default(self, statement: cmd2.Statement) -> None:
-        text = statement.raw.strip()
+    def default(self, text: str) -> None:
         if not text:
             return
 
@@ -152,7 +131,8 @@ class DeeprApp(cmd2.Cmd):
 
         with warnings.catch_warnings():
             warnings.filterwarnings(
-                "ignore", message="Interactions usage is experimental"
+                "ignore",
+                message="Interactions usage is experimental",
             )
             interaction = client.interactions.create(
                 input=text,
@@ -211,12 +191,12 @@ class DeeprApp(cmd2.Cmd):
         if report_text:
             console.print(rm.Markdown(report_text))
             self._reports.append(report_text)
-            self.prompt = "deepr (follow-up)> "
+            self._prompt = "deepr (follow-up)> "
 
 
 def main() -> None:
     app = DeeprApp()
-    app.cmdloop()
+    app.run()
 
 
 if __name__ == "__main__":
