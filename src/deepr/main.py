@@ -10,6 +10,7 @@ import keyring
 import rich.console as rc
 import rich.markdown as rm
 
+import deepr.latex as dl
 from deepr.command import CommandApp, command
 
 
@@ -189,7 +190,7 @@ class DeeprApp(CommandApp):
             return
 
         if report_text:
-            console.print(rm.Markdown(report_text))
+            console.print(rm.Markdown(dl.latex_to_unicode(report_text)))
             self._reports.append(report_text)
             self._prompt = "deepr (follow-up)> "
 
