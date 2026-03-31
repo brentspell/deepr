@@ -7,7 +7,6 @@ import google.genai as genai
 import google.genai.interactions as gxi
 from google.genai._interactions._types import omit as _OMIT
 import keyring
-import rich.console as rc
 import rich.markdown as rm
 
 import deepr.latex as dl
@@ -24,6 +23,7 @@ class DeeprApp(CommandApp):
             intro="Welcome to deepr. Type a prompt to begin research.",
             prog="deepr",
             description="Deep Research Agent",
+            console_width=120,
         )
         self._research_id: str | None = None
         self._reports: list[str] = []
@@ -145,7 +145,7 @@ class DeeprApp(CommandApp):
                 ),
             )
 
-        console = rc.Console(width=120)
+        console = self.console
         console.print()
         report_text = ""
         streaming_report = False

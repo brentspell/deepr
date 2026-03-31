@@ -125,6 +125,7 @@ class CommandApp:
         intro: str | None = None,
         prog: str | None = None,
         description: str | None = None,
+        console_width: int | None = None,
     ) -> None:
         self._prompt = prompt
         self._history_file = (
@@ -133,8 +134,8 @@ class CommandApp:
         self._intro = intro
         self._prog = prog
         self._description = description
-        self._console = rc.Console()
-        self._err_console = rc.Console(stderr=True)
+        self._console = rc.Console(width=console_width)
+        self._err_console = rc.Console(stderr=True, width=console_width)
 
         # Collect commands by inspecting class dictionaries across the MRO.
         # This avoids triggering properties/descriptors with side effects that
@@ -315,6 +316,11 @@ class CommandApp:
     # ------------------------------------------------------------------
     # Output helpers
     # ------------------------------------------------------------------
+
+    @property
+    def console(self) -> rc.Console:
+        """The Rich console used for stdout output."""
+        return self._console
 
     def poutput(self, text: object = "") -> None:
         """Print *text* to stdout via Rich."""
