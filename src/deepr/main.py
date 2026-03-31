@@ -33,7 +33,7 @@ class DeeprApp(CommandApp):
         if not existing:
             self.poutput("No Google GenAI API key found. Use '/key' to set one.")
 
-    @command("key", "Set the Google GenAI API key.")
+    @command()
     def cmd_key(self, args: str) -> None:
         """Set the Google GenAI API key used for deep research queries.
 
@@ -57,7 +57,7 @@ class DeeprApp(CommandApp):
         keyring.set_password(self._KEYRING, self._KEYRING, key)
         self.poutput("API key saved to keyring.")
 
-    @command("reset", "Clear conversation and start fresh.")
+    @command()
     def cmd_reset(self, args: str) -> None:
         """Clear the current research conversation and start fresh.
 
@@ -74,7 +74,7 @@ class DeeprApp(CommandApp):
         self._prompt = "deepr> "
         self.poutput("Conversation cleared. Type a prompt to begin new research.")
 
-    @command("save", "Export reports to PDF.")
+    @command()
     def cmd_save(self, args: str) -> None:
         """Export the current research reports to a PDF file.
 

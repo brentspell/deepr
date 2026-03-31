@@ -1,5 +1,6 @@
 """Minimal command framework built on prompt_toolkit and Rich."""
 
+import inspect
 import pathlib
 import sys
 import typing as T
@@ -26,23 +27,49 @@ class CommandInfo(T.NamedTuple):
 
 
 def command(
-    name: str, description: str
+    name: str | None = None,
+    description: str | None = None,
 ) -> T.Callable[[T.Callable[..., None]], T.Callable[..., None]]:
     """Register a method as a slash command.
+
+    Both *name* and *description* are optional.  When omitted the name is
+    derived from the function name by stripping a leading ``cmd_`` prefix,
+    and the description is taken from the first line of the docstring.
 
     Usage::
 
         class MyApp(CommandApp):
-            @command("greet", "Say hello.")
+            @command()
             def cmd_greet(self, args: str) -> None:
+                \"\"\"Say hello.\"\"\"
                 self.poutput(f"Hello, {args or 'world'}!")
     """
 
     def decorator(fn: T.Callable[..., None]) -> T.Callable[..., None]:
-        setattr(fn, _COMMAND_ATTR, CommandInfo(name, description))
+        cmd_name = name if name is not None else _name_from_function(fn)
+        cmd_desc = (
+            description if description is not None else _description_from_docstring(fn)
+        )
+        setattr(fn, _COMMAND_ATTR, CommandInfo(cmd_name, cmd_desc))
         return fn
 
     return decorator
+
+
+def _name_from_function(fn: T.Callable[..., T.Any]) -> str:
+    """Derive a command name from a function name by stripping a ``cmd_`` prefix."""
+    func_name = inspect.unwrap(fn).__qualname__.rsplit(".", 1)[-1]
+    if func_name.startswith("cmd_"):
+        return func_name[4:]
+    return func_name
+
+
+def _description_from_docstring(fn: T.Callable[..., T.Any]) -> str:
+    """Extract the first line of a function's docstring, or return ``""``."""
+    doc = inspect.getdoc(fn)
+    if not doc:
+        return ""
+    return doc.split("\n", 1)[0].strip()
 
 
 # ---------------------------------------------------------------------------
@@ -109,13 +136,20 @@ class CommandApp:
         self._console = rc.Console()
         self._err_console = rc.Console(stderr=True)
 
-        # Collect commands from decorated methods
+        # Collect commands by inspecting class dictionaries across the MRO.
+        # This avoids triggering properties/descriptors with side effects that
+        # a ``dir()`` + ``getattr(self, ...)`` walk would.
         self._commands: dict[str, tuple[T.Callable[[str], None], str]] = {}
-        for attr_name in dir(self):
-            attr = getattr(self, attr_name, None)
-            info: CommandInfo | None = getattr(attr, _COMMAND_ATTR, None)
-            if info is not None:
-                self._commands[info.name] = (attr, info.description)  # type: ignore[assignment]
+        seen: set[str] = set()
+        for cls in type(self).__mro__:
+            for attr_name, attr in vars(cls).items():
+                if attr_name in seen:
+                    continue
+                seen.add(attr_name)
+                info: CommandInfo | None = getattr(attr, _COMMAND_ATTR, None)
+                if info is not None:
+                    bound = getattr(self, attr_name)
+                    self._commands[info.name] = (bound, info.description)
 
     # ------------------------------------------------------------------
     # Public entry point
@@ -139,7 +173,7 @@ class CommandApp:
                 self._print_usage()
             return
 
-        head = args[0].lstrip("/")
+        head = args[0].lstrip("/").lower()
         all_commands = {"help", *self._commands}
 
         if head in all_commands:

@@ -18,12 +18,14 @@ class RecordingApp(CommandApp):
         super().__init__(**kwargs)
         self.calls: list[tuple[str, str]] = []
 
-    @command("greet", "Say hello.")
+    @command()
     def cmd_greet(self, args: str) -> None:
+        """Say hello."""
         self.calls.append(("greet", args))
 
-    @command("save", "Save a file.")
+    @command()
     def cmd_save(self, args: str) -> None:
+        """Save a file."""
         self.calls.append(("save", args))
 
     def default(self, text: str) -> None:
@@ -50,6 +52,72 @@ class TestCommandRegistration:
         app = RecordingApp()
         assert app._commands["greet"][1] == "Say hello."
         assert app._commands["save"][1] == "Save a file."
+
+
+# ---------------------------------------------------------------------------
+# Implicit defaults from naming conventions and docstrings
+# ---------------------------------------------------------------------------
+
+
+class TestImplicitDefaults:
+    def test_name_derived_from_cmd_prefix(self):
+        """``cmd_greet`` -> command name ``greet``."""
+        app = RecordingApp()
+        assert "greet" in app._commands
+
+    def test_description_derived_from_docstring(self):
+        app = RecordingApp()
+        assert app._commands["greet"][1] == "Say hello."
+
+    def test_explicit_name_overrides_function_name(self):
+        class App(CommandApp):
+            @command(name="hi")
+            def cmd_greet(self, args: str) -> None:
+                """Say hello."""
+
+        app = App()
+        assert "hi" in app._commands
+        assert "greet" not in app._commands
+
+    def test_explicit_description_overrides_docstring(self):
+        class App(CommandApp):
+            @command(description="Custom desc.")
+            def cmd_greet(self, args: str) -> None:
+                """Say hello."""
+
+        app = App()
+        assert app._commands["greet"][1] == "Custom desc."
+
+    def test_no_cmd_prefix_uses_full_name(self):
+        class App(CommandApp):
+            @command()
+            def greet(self, args: str) -> None:
+                """Say hello."""
+
+        app = App()
+        assert "greet" in app._commands
+
+    def test_no_docstring_gives_empty_description(self):
+        class App(CommandApp):
+            @command()
+            def cmd_ping(self, args: str) -> None:
+                pass
+
+        app = App()
+        assert app._commands["ping"][1] == ""
+
+    def test_multiline_docstring_uses_first_line(self):
+        class App(CommandApp):
+            @command()
+            def cmd_info(self, args: str) -> None:
+                """Show system info.
+
+                This prints detailed system information including
+                version numbers and configuration.
+                """
+
+        app = App()
+        assert app._commands["info"][1] == "Show system info."
 
 
 # ---------------------------------------------------------------------------
@@ -199,6 +267,15 @@ class TestNonInteractiveRun:
         monkeypatch.setattr(
             "sys.argv",
             ["test", "greet", "world"],
+        )
+        app.run()
+        assert app.calls == [("greet", "world")]
+
+    def test_run_subcommand_is_case_insensitive(self, monkeypatch):
+        app = RecordingApp()
+        monkeypatch.setattr(
+            "sys.argv",
+            ["test", "GREET", "world"],
         )
         app.run()
         assert app.calls == [("greet", "world")]
