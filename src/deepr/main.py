@@ -5,7 +5,7 @@ import warnings
 
 import google.genai as genai
 import google.genai.interactions as gxi
-from google.genai._interactions._types import omit as _OMIT
+import google.genai._interactions as gxii
 import keyring
 import rich.markdown as rm
 
@@ -15,6 +15,7 @@ from deepr.command import CommandApp, command
 
 class DeeprApp(CommandApp):
     _KEYRING = "deepr"
+    _STREAM_READ_TIMEOUT = 60.0
 
     def __init__(self) -> None:
         super().__init__(
@@ -137,54 +138,84 @@ class DeeprApp(CommandApp):
             )
             interaction = client.interactions.create(
                 input=text,
-                agent="deep-research-pro-preview-12-2025",
+                agent="deep-research-max-preview-04-2026",
                 agent_config={"type": "deep-research", "thinking_summaries": "auto"},
                 background=True,
                 previous_interaction_id=(
-                    self._research_id if self._research_id is not None else _OMIT
+                    self._research_id
+                    if self._research_id is not None
+                    else gxii._types.omit
                 ),
             )
 
         console = self.console
         console.print()
         report_text = ""
-        streaming_report = False
+        last_event_id = gxii._types.omit
 
         self._research_id = interaction.id
         try:
             with console.status("Researching...") as status:
-                stream = client.interactions.get(interaction.id, stream=True)
-                for event in stream:
-                    if isinstance(event, gxi.ContentDelta):
-                        delta = event.delta
-                        if delta.type == "thought_summary":
-                            content = getattr(delta, "content", None)
-                            if content is not None and hasattr(content, "text"):
-                                status.update(f"Thinking: {content.text}")
-                        elif delta.type == "google_search_call":
-                            queries = getattr(delta, "arguments", None)
-                            if queries is not None:
-                                query_list = getattr(queries, "queries", None) or []
-                                if query_list:
-                                    status.update(f"Searching: {query_list[0]}")
-                        elif delta.type == "text":
-                            if not streaming_report:
-                                streaming_report = True
-                                status.stop()
-                            report_text += getattr(delta, "text", "")
-                    elif isinstance(event, gxi.InteractionStatusUpdate):
-                        if event.status == "failed":
-                            status.stop()
-                            self.perror(f"Research failed (status: {event.status})")
-                            return
-                        if not streaming_report:
-                            status.update(f"Researching... ({event.status})")
-                    elif isinstance(event, gxi.ErrorEvent):
-                        status.stop()
-                        self.perror(f"Research error: {event}")
-                        return
+                while True:
+                    try:
+                        stream = client.interactions.get(
+                            interaction.id,
+                            stream=True,
+                            last_event_id=last_event_id,
+                            timeout=self._STREAM_READ_TIMEOUT,
+                        )
+                        for event in stream:
+                            eid = getattr(event, "event_id", None)
+                            if eid:
+                                last_event_id = eid
+
+                            if isinstance(event, gxi.ContentDelta):
+                                delta = event.delta
+                                if delta.type == "thought_summary":
+                                    content = getattr(delta, "content", None)
+                                    if content is not None and hasattr(content, "text"):
+                                        status.update(f"Thinking: {content.text}")
+                                elif delta.type == "google_search_call":
+                                    queries = getattr(delta, "arguments", None)
+                                    if queries is not None:
+                                        query_list = (
+                                            getattr(queries, "queries", None) or []
+                                        )
+                                        if query_list:
+                                            status.update(f"Searching: {query_list[0]}")
+                            elif isinstance(event, gxi.InteractionStatusUpdate):
+                                if event.status in (
+                                    "completed",
+                                    "failed",
+                                    "cancelled",
+                                    "incomplete",
+                                ):
+                                    break
+                                status.update(f"Researching... ({event.status})")
+                            elif isinstance(event, gxi.InteractionCompleteEvent):
+                                break
+                            elif isinstance(event, gxi.ErrorEvent):
+                                break
+                    except Exception:
+                        # ignore any streaming progress errors
+                        pass
+
+                    current = client.interactions.get(interaction.id)
+                    if current.status != "in_progress":
+                        if current.status != "completed":
+                            self.perror(f"Research ended with status: {current.status}")
+                        else:
+                            report_text = "".join(
+                                getattr(b, "text", "") or ""
+                                for b in (current.outputs or [])
+                                if b.type == "text"
+                            )
+                        break
         except KeyboardInterrupt:
-            client.interactions.cancel(interaction.id)
+            try:
+                client.interactions.cancel(interaction.id)
+            except Exception:
+                pass
             self._research_id = None
             self.poutput("\nResearch cancelled.")
             return

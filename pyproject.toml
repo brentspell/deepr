@@ -9,7 +9,7 @@ dependencies = [
   "keyring~=25.7",
   "prompt-toolkit~=3.0",
   "pylatexenc~=2.10",
-  "rich~=14.0",
+  "rich~=15.0",
 ]
 
 [dependency-groups]
