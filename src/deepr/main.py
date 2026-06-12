@@ -205,7 +205,9 @@ class DeeprApp(CommandApp):
                         if current.status != "completed":
                             self.perror(f"Research ended with status: {current.status}")
                         else:
-                            report_text = self._extract_report(current)
+                            # The final report spans the trailing run of
+                            # model_output steps; output_text aggregates them.
+                            report_text = current.output_text
                         break
         except KeyboardInterrupt:
             try:
@@ -221,20 +223,6 @@ class DeeprApp(CommandApp):
             self._reports.append(report_text)
             self._prompt = "deepr (follow-up)> "
             self.notify("Research complete")
-
-    @staticmethod
-    def _extract_report(interaction: gxi.Interaction) -> str:
-        # The final report is emitted as the last model_output step; concatenate
-        # its text content blocks (the new "steps" schema replaces the old
-        # top-level "outputs" list).
-        for step in reversed(interaction.steps or []):
-            if isinstance(step, gxi.ModelOutputStep):
-                return "".join(
-                    block.text
-                    for block in (step.content or [])
-                    if isinstance(block, gxi.TextContent)
-                )
-        return ""
 
 
 def main() -> None:
