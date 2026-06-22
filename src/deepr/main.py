@@ -5,7 +5,6 @@ import warnings
 
 import google.genai as genai
 import google.genai.interactions as gxi
-import google.genai._interactions as gxii
 import keyring
 import rich.markdown as rm
 
@@ -141,25 +140,31 @@ class DeeprApp(CommandApp):
                 agent="deep-research-max-preview-04-2026",
                 agent_config={"type": "deep-research", "thinking_summaries": "auto"},
                 background=True,
-                previous_interaction_id=(
-                    self._research_id
-                    if self._research_id is not None
-                    else gxii._types.omit
-                ),
+                previous_interaction_id=self._research_id,
             )
+
+        # A backgrounded, non-streaming create always yields an Interaction; the
+        # union return type also admits a Stream, which we never request here.
+        if not isinstance(interaction, gxi.Interaction):
+            self.perror("Unexpected streaming response from research request.")
+            return
+        if interaction.id is None:
+            self.perror("Research request returned no interaction id.")
+            return
+        research_id = interaction.id
 
         console = self.console
         console.print()
         report_text = ""
-        last_event_id = gxii._types.omit
+        last_event_id = None
 
-        self._research_id = interaction.id
+        self._research_id = research_id
         try:
             with console.status("Researching...") as status:
                 while True:
                     try:
                         stream = client.interactions.get(
-                            interaction.id,
+                            research_id,
                             stream=True,
                             last_event_id=last_event_id,
                             timeout=self._STREAM_READ_TIMEOUT,
@@ -200,7 +205,7 @@ class DeeprApp(CommandApp):
                         # ignore any streaming progress errors
                         pass
 
-                    current = client.interactions.get(interaction.id)
+                    current = client.interactions.get(research_id)
                     if current.status != "in_progress":
                         if current.status != "completed":
                             self.perror(f"Research ended with status: {current.status}")
@@ -211,7 +216,7 @@ class DeeprApp(CommandApp):
                         break
         except KeyboardInterrupt:
             try:
-                client.interactions.cancel(interaction.id)
+                client.interactions.cancel(research_id)
             except Exception:
                 pass
             self._research_id = None
